@@ -16,6 +16,7 @@ import {
   getRecommendedNextAction,
   normalizeCzech,
   selectSmartFlashcards,
+  toCzechVocative,
 } from '../utils/studyLogic';
 import { INITIAL_PROGRESS } from '../hooks/useStudyProgress';
 
@@ -191,5 +192,28 @@ describe('Czech Normalization & Statutory 2026 Calculations', () => {
     );
     expect(ticket.module.id).not.toBe(STUDY_MODULES[0].id);
     expect(ticket.scenario.id).not.toBe(CASE_SCENARIOS[0].id);
+  });
+});
+
+describe('Answer order & greeting polish', () => {
+  it('spreads correct quiz answers across positions so they cannot be guessed (no position > 40 %)', () => {
+    const counts = [0, 0, 0, 0];
+    for (const q of QUIZ_QUESTIONS) counts[q.correctIndex]++;
+    for (const c of counts) {
+      expect(c / QUIZ_QUESTIONS.length).toBeLessThan(0.4);
+    }
+  });
+
+  it('does not always put the best scenario choice in the same position', () => {
+    const positions = new Set(CASE_SCENARIOS.map((s) => s.choices.findIndex((c) => c.isBest)));
+    expect(positions.size).toBeGreaterThan(1);
+  });
+
+  it('builds a simple Czech vocative for the greeting', () => {
+    expect(toCzechVocative('Jana')).toBe('Jano');
+    expect(toCzechVocative('Petra')).toBe('Petro');
+    expect(toCzechVocative('Terko')).toBe('Terko');
+    expect(toCzechVocative('Lucie')).toBe('Lucie');
+    expect(toCzechVocative('Tomáš')).toBe('Tomáš');
   });
 });

@@ -98,6 +98,7 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
   const handleMarkTicketSolved = () => {
     if (ticketCounted) return;
     setTicketCounted(true);
+    setPrepRunning(false);
     onIncrementOralTicket?.();
   };
 
@@ -173,7 +174,7 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
                   <Dices className="w-3.5 h-3.5" /> Vylosovaný zkušební lístek
                 </span>
                 <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">
-                  1. {ticket.module.title} + Situace: {ticket.scenario.title}
+                  Okruh {ticket.module.order}: {ticket.module.title} + Situace: {ticket.scenario.title}
                 </h3>
               </div>
 
@@ -319,7 +320,9 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
                     <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-1.5">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
                       <span>
-                        <strong>Pozor na chyták:</strong> {ticket.module.examTraps[0].truth}
+                        <strong>Pozor na chyták:</strong> „{ticket.module.examTraps[0].trap}“
+                        <br />
+                        <strong>Správně:</strong> {ticket.module.examTraps[0].truth}
                       </span>
                     </div>
                   )}

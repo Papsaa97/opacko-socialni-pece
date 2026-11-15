@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import type { ModuleId, NavViewId, UserProgress } from '../types/study';
 import { CASE_SCENARIOS, FLASHCARDS, QUIZ_QUESTIONS, STUDY_MODULES } from '../data';
-import { getDaysUntilExam, getRecommendedNextAction } from '../utils/studyLogic';
+import { getDaysUntilExam, getRecommendedNextAction, toCzechVocative } from '../utils/studyLogic';
 
 interface DashboardViewProps {
   progress: UserProgress;
@@ -109,7 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Ahoj{progress.userName ? ` ${progress.userName}` : ''}! Dáme opáčko ke zkoušce v klidu a přehledně.
+              Ahoj{progress.userName ? ` ${toCzechVocative(progress.userName)}` : ''}! Dáme opáčko ke zkoušce v klidu a přehledně.
             </h2>
             <p className="text-teal-100 text-sm sm:text-base leading-relaxed">
               Všechny klíčové paragrafy zákona č. 108/2006 Sb., aktuální částky pro rok 2026,

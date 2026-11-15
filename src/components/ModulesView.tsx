@@ -57,6 +57,23 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
       });
     }
     setOpenSections(initial);
+
+    // Bring the right place into view: the focused chapter (from search) or the top of the new okruh.
+    const timer = window.setTimeout(() => {
+      try {
+        const target = focusedSectionId
+          ? document.getElementById(`section-${focusedSectionId}`)
+          : null;
+        if (target && typeof target.scrollIntoView === 'function') {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (typeof window.scrollTo === 'function') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch {
+        // jsdom / old browsers without smooth scrolling
+      }
+    }, 60);
+    return () => window.clearTimeout(timer);
   }, [currentModule, focusedSectionId]);
 
   const toggleSection = (id: string) => {
@@ -217,7 +234,8 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
           return (
             <div
               key={section.id}
-              className={`rounded-2xl bg-white dark:bg-slate-900 border overflow-hidden transition-colors ${
+              id={`section-${section.id}`}
+              className={`scroll-mt-20 rounded-2xl bg-white dark:bg-slate-900 border overflow-hidden transition-colors ${
                 isHighlighted
                   ? 'border-teal-500 ring-2 ring-teal-500/20'
                   : 'border-slate-200 dark:border-slate-800'

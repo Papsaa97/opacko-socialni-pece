@@ -367,7 +367,7 @@ export const STUDY_MODULES: StudyModule[] = [
           headers: ['Znak', 'Demence', 'Delirium', 'Deprese'],
           rows: [
             ['Nástup', 'Pomalý, plíživý (měsíce/roky)', 'Náhlý (hodiny až dny)', 'Týdny až měsíce'],
-            ['Průběh', 'Postupně zhoršující, stabilní v rámci dne', 'Kolísavý (horší večer a v noci)', 'Ranní pesima, smutek'],
+            ['Průběh', 'Postupně zhoršující, stabilní v rámci dne', 'Kolísavý (horší večer a v noci)', 'Ranní pesimum (ráno nejhůř), smutek'],
             ['Léčitelnost', 'Chronická (zmírnění průběhu)', 'VRATNÁ po odstranění příčiny!', 'Dobře léčitelná terapií a léky'],
           ],
         },

@@ -7,7 +7,7 @@ export const FLASHCARDS: Flashcard[] = [
     moduleId: 'legislativa',
     question: 'Který zákon upravuje sociální služby v České republice a odkdy platí?',
     answer: 'Zákon č. 108/2006 Sb., o sociálních službách (účinný od 1. 1. 2007). Prováděcím předpisem je vyhláška č. 505/2006 Sb.',
-    mnemonic: '108 = stovka pro sociálku, 505 = půl pět set pro vyhlášku.',
+    mnemonic: '108 = zákon (to hlavní), 505 = prováděcí vyhláška, která zákon rozvádí do detailu (úkony, úhrady, standardy).',
     tags: ['zákon 108/2006', 'vyhláška 505/2006'],
   },
   {

@@ -9,6 +9,7 @@ import {
   HeartHandshake,
   Layers,
   LayoutDashboard,
+  LayoutGrid,
   Moon,
   RotateCcw,
   Search,
@@ -60,6 +61,10 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'cheatsheet', label: 'Tahák ke zkoušce', mobileLabel: 'Tahák', icon: FileText },
 ];
 
+const MOBILE_PRIMARY_IDS: NavViewId[] = ['dashboard', 'modules', 'flashcards', 'quiz'];
+const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.filter((item) => MOBILE_PRIMARY_IDS.includes(item.id));
+const MOBILE_MORE_ITEMS = NAV_ITEMS.filter((item) => !MOBILE_PRIMARY_IDS.includes(item.id));
+
 export const Layout: React.FC<LayoutProps> = ({
   activeView,
   onNavigate,
@@ -71,6 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({
   children,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [backupOpen, setBackupOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -380,35 +386,97 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </main>
 
-      {/* Mobile Scrollable Bottom Navigation */}
+      {/* Mobile Bottom Navigation: 4 main sections + "Více" sheet (fits 360px phones without side-scrolling) */}
+      {mobileMoreOpen && (
+        <div
+          className="no-print lg:hidden fixed inset-0 z-30 bg-slate-950/40"
+          onClick={() => setMobileMoreOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      {mobileMoreOpen && (
+        <div
+          id="mobile-more-menu"
+          className="no-print lg:hidden fixed inset-x-3 bottom-20 z-40 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl grid grid-cols-2 gap-2"
+        >
+          {MOBILE_MORE_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setMobileMoreOpen(false);
+                  onNavigate(item.id);
+                }}
+                className={`flex items-center gap-2.5 p-3 rounded-xl text-sm font-semibold text-left transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300'
+                    : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200'
+                }`}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                <span>{item.mobileLabel === 'Praxe' ? 'Situace & ústní' : item.mobileLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <nav
-        className="no-print lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center gap-1 overflow-x-auto"
+        className="no-print lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-1.5 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] grid grid-cols-5 gap-1"
         aria-label="Mobilní navigace"
       >
-        {NAV_ITEMS.map((item) => {
+        {MOBILE_PRIMARY_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onNavigate(item.id)}
-              className={`shrink-0 min-w-[68px] flex flex-col items-center justify-center py-1.5 px-2 rounded-xl text-[11px] font-medium transition-colors relative ${
+              onClick={() => {
+                setMobileMoreOpen(false);
+                onNavigate(item.id);
+              }}
+              aria-current={isActive ? 'page' : undefined}
+              className={`min-w-0 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition-colors relative ${
                 isActive
                   ? 'bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 font-semibold'
                   : 'text-slate-500 dark:text-slate-400'
               }`}
             >
-              <Icon className="w-4 h-4 mb-0.5" />
-              <span>{item.mobileLabel}</span>
+              <Icon className="w-5 h-5 mb-0.5" />
+              <span className="truncate max-w-full">{item.mobileLabel}</span>
               {item.id === 'quiz' && mistakeCount > 0 && (
-                <span className="absolute top-0.5 right-2 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+                <span className="absolute top-0.5 right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
                   {mistakeCount > 9 ? '9+' : mistakeCount}
                 </span>
               )}
             </button>
           );
         })}
+        {(() => {
+          const activeMore = MOBILE_MORE_ITEMS.find((item) => item.id === activeView);
+          const MoreIcon = activeMore ? activeMore.icon : LayoutGrid;
+          const highlighted = Boolean(activeMore) || mobileMoreOpen;
+          return (
+            <button
+              type="button"
+              onClick={() => setMobileMoreOpen((open) => !open)}
+              aria-expanded={mobileMoreOpen}
+              aria-controls="mobile-more-menu"
+              aria-label="Další sekce"
+              className={`min-w-0 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition-colors ${
+                highlighted
+                  ? 'bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 font-semibold'
+                  : 'text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              <MoreIcon className="w-5 h-5 mb-0.5" />
+              <span className="truncate max-w-full">{activeMore ? activeMore.mobileLabel : 'Více'}</span>
+            </button>
+          );
+        })()}
       </nav>
 
       {/* Global Search Modal */}

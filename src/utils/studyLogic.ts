@@ -464,3 +464,17 @@ export function drawOralExamTicket(
 
   return { module: mod, scenario };
 }
+
+
+/**
+ * Very small Czech vocative helper for first names in the greeting ("Jana" → "Jano", "Petra" → "Petro").
+ * Only handles the safe, common ending -a; anything else (Lucie, Terko, Tomáš…) is left unchanged.
+ */
+export function toCzechVocative(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length < 3 || /\s/.test(trimmed)) return trimmed;
+  if (/[^aeiouyáéíóúůý]a$/i.test(trimmed)) {
+    return trimmed.slice(0, -1) + (trimmed.endsWith('A') ? 'O' : 'o');
+  }
+  return trimmed;
+}

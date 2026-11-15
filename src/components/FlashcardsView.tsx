@@ -319,7 +319,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
               <span>
                 Kartička {safeIndex + 1} z {deck.length}
               </span>
-              <span>Klávesy: Mezerník = otočit · 1 / 2 / 3 = ohodnotit</span>
+              <span className="hidden sm:inline">Klávesy: Mezerník = otočit · 1 / 2 / 3 = ohodnotit</span>
             </div>
             <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
               <div

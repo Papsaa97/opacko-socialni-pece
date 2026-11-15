@@ -285,7 +285,7 @@ export const VITAL_SIGNS_REFERENCE = [
     parameter: 'Tělesná teplota (TT)',
     normalRange: '36,0 – 36,9 °C',
     warningSigns: 'Pod 35,5 °C (hypotermie – pozor u seniorů!) nebo nad 38,0 °C (horečka; u seniorů se infekce může projevit bez horečky jen náhlou zmateností!).',
-    pssNote: 'Měří zpravidla sestra nebo dle interního řádu; PSS hlásí třesavku, horkou či studenou kůži, apatií.',
+    pssNote: 'Měří zpravidla sestra nebo dle interního řádu; PSS hlásí třesavku, horkou či studenou kůži, apatii.',
   },
   {
     parameter: 'Tepová frekvence (puls)',
@@ -335,7 +335,7 @@ export const COMPETENCY_MATRIX = [
     nurse: 'Výhradně zdravotnický pracovník (převazy, zavedení PMK)',
   },
   {
-    task: 'Vyprazdňování zberného sáčku PMK a péče o stomii',
+    task: 'Vyprazdňování sběrného sáčku PMK a péče o stomii',
     pss: 'Běžná péče o zevní hygienu, sledování náplně sáčku (sáček vždy pod úrovní měchýře!), výměna podložek dle kompetence a vnitřního předpisu',
     nurse: 'Zavedení/výměna PMK, řešení neprůchodnosti, krvácení či komplikací stomie',
   },

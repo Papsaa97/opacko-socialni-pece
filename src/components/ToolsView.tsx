@@ -40,7 +40,7 @@ const DEMENTIA_DELIRIUM_DEPRESSION = [
     feature: 'Denní kolísání',
     dementia: 'Relativně stabilní (může být večerní sundowning).',
     delirium: 'Výrazně kolísá během dne (ráno klidnější, večer/v noci výrazná zmatenost a halucinace).',
-    depression: 'Ranní pesima – ráno nejhůř, k večeru se nálada může lehce zlepšovat.',
+    depression: 'Ranní pesimum – ráno nejhůř, k večeru se nálada může lehce zlepšovat.',
   },
   {
     feature: 'Vědomí a pozornost',
@@ -56,7 +56,7 @@ const DEMENTIA_DELIRIUM_DEPRESSION = [
   },
   {
     feature: 'Okamžitá role PSS',
-    dementia: 'Validace, klidná rutina, biografie, nesporovat a neopravovat bludy silou.',
+    dementia: 'Validace, klidná rutina, biografie, nepřít se a neopravovat bludy silou.',
     delirium: 'IHNED hlásit sestře/lékaři, zklidnit, zabezpečit proti pádu, sledovat příjem tekutin!',
     depression: 'Všímat si odmítání jídla a ztráty zájmu, citlivě naslouchat, zapojit do drobných radostí a hlásit sestře.',
   },
