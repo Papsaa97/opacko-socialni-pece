@@ -409,7 +409,7 @@ export const STUDY_MODULES: StudyModule[] = [
     ],
     examTips: [
       'Při příkladu paní, která balí kufr a „musí domů uvařit dětem“, použijte validaci: potvrďte její lásku k rodině a péči, nezapírejte její věk a jemně odveďte pozornost.',
-      'U nevidomého seniora u zkoušky vždy zazářite „pravidlem hodinového ciferníku“ na talíři a představením se ihned u dveří.',
+      'U nevidomého seniora u zkoušky vždy zazáříte „pravidlem hodinového ciferníku“ na talíři a představením se ihned u dveří.',
     ],
     examTraps: [
       {

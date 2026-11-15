@@ -320,7 +320,7 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
                     <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-1.5">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
                       <span>
-                        <strong>Pozor na chyták:</strong> „{ticket.module.examTraps[0].trap}“
+                        <strong>Pozor na chyták:</strong> {ticket.module.examTraps[0].trap}
                         <br />
                         <strong>Správně:</strong> {ticket.module.examTraps[0].truth}
                       </span>
@@ -427,7 +427,7 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
                     <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       Jak se zachováte?
                     </div>
-                    {scenario.choices.map((choice) => {
+                    {scenario.choices.map((choice, choiceIndex) => {
                       const isSelected = chosenId === choice.id;
                       let btnStyle =
                         'border-slate-200 dark:border-slate-700 hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-slate-800/70';
@@ -453,7 +453,7 @@ export const ScenariosView: React.FC<ScenariosViewProps> = ({
                           className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border-2 text-sm font-medium transition-all flex items-start gap-3 cursor-pointer ${btnStyle}`}
                         >
                           <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 uppercase">
-                            {choice.id}
+                            {String.fromCharCode(65 + choiceIndex)}
                           </span>
                           <span className="flex-1">{choice.text}</span>
                           {chosenId && choice.isBest && (

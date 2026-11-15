@@ -465,7 +465,7 @@ export const Layout: React.FC<LayoutProps> = ({
               onClick={() => setMobileMoreOpen((open) => !open)}
               aria-expanded={mobileMoreOpen}
               aria-controls="mobile-more-menu"
-              aria-label="Další sekce"
+              aria-label={activeMore ? `${activeMore.mobileLabel} – další sekce` : 'Další sekce'}
               className={`min-w-0 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[11px] font-medium transition-colors ${
                 highlighted
                   ? 'bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 font-semibold'
