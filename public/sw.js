@@ -1,4 +1,4 @@
-const CACHE_NAME = 'opacko-pss-cache-v1';
+const CACHE_NAME = 'opacko-pss-cache-v2';
 
 const APP_SHELL_URLS = [
   './',

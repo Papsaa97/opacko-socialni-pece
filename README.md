@@ -53,7 +53,7 @@ Nejjednodušší způsob je poslat jí jediný samostatný soubor:
    - Kalkulačka měsíční úhrady v domově pro seniory a kontrola povinného **15% zůstatku**
    - Přehled vitálních funkcí a matice kompetencí PSS vs. zdravotní sestra
    - **SOS První pomoc & KPR Metronom (110/min)**, interaktivní kontrolní seznam FAST (CMP) a přehled „3D“ (Demence vs. Delirium vs. Deprese)
-7. **Slovník pojmů (68 hesel)** s vyhledáváním bez diakritiky (i přes `Ctrl + K`) a režimem aktivního zkoušení (skrytí definic).
+7. **Slovník pojmů (80 hesel)** s vyhledáváním bez diakritiky (i přes `Ctrl + K`) a režimem aktivního zkoušení (skrytí definic).
 8. **Tahák ke zkoušce** optimalizovaný pro tisk na papír A4 nebo uložení jako PDF.
 
 ---
