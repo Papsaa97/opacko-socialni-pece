@@ -20,6 +20,10 @@ function isYesterday(previousDateStr: string | null, todayStr: string): boolean 
 }
 
 export const INITIAL_PROGRESS: UserProgress = {
+  userName: '',
+  examDate: null,
+  studyNotes: '',
+  oralTicketsSolved: 0,
   cardBoxes: {},
   completedModules: [],
   answeredQuestions: {},
@@ -42,22 +46,33 @@ function withUpdatedStreak(prev: UserProgress): Pick<UserProgress, 'lastStudyDat
   return { lastStudyDate: today, streakDays: 1 };
 }
 
+function sanitizeLoadedProgress(parsed: Partial<UserProgress>, keepTheme?: 'light' | 'dark'): UserProgress {
+  return {
+    ...INITIAL_PROGRESS,
+    ...parsed,
+    userName: typeof parsed.userName === 'string' ? parsed.userName : '',
+    examDate: typeof parsed.examDate === 'string' && parsed.examDate ? parsed.examDate : null,
+    studyNotes: typeof parsed.studyNotes === 'string' ? parsed.studyNotes : '',
+    oralTicketsSolved:
+      typeof parsed.oralTicketsSolved === 'number' && Number.isFinite(parsed.oralTicketsSolved)
+        ? Math.max(0, parsed.oralTicketsSolved)
+        : 0,
+    cardBoxes: parsed.cardBoxes ?? {},
+    completedModules: Array.isArray(parsed.completedModules) ? parsed.completedModules : [],
+    answeredQuestions: parsed.answeredQuestions ?? {},
+    mistakeQuestionIds: Array.isArray(parsed.mistakeQuestionIds) ? parsed.mistakeQuestionIds : [],
+    completedScenarios: parsed.completedScenarios ?? {},
+    examHistory: Array.isArray(parsed.examHistory) ? parsed.examHistory : [],
+    theme: keepTheme ?? (parsed.theme === 'dark' ? 'dark' : 'light'),
+  };
+}
+
 function loadInitialProgress(): UserProgress {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return INITIAL_PROGRESS;
     const parsed = JSON.parse(raw) as Partial<UserProgress>;
-    return {
-      ...INITIAL_PROGRESS,
-      ...parsed,
-      cardBoxes: parsed.cardBoxes ?? {},
-      completedModules: Array.isArray(parsed.completedModules) ? parsed.completedModules : [],
-      answeredQuestions: parsed.answeredQuestions ?? {},
-      mistakeQuestionIds: Array.isArray(parsed.mistakeQuestionIds) ? parsed.mistakeQuestionIds : [],
-      completedScenarios: parsed.completedScenarios ?? {},
-      examHistory: Array.isArray(parsed.examHistory) ? parsed.examHistory : [],
-      theme: parsed.theme === 'dark' ? 'dark' : 'light',
-    };
+    return sanitizeLoadedProgress(parsed);
   } catch {
     return INITIAL_PROGRESS;
   }
@@ -154,6 +169,29 @@ export function useStudyProgress() {
     }));
   }, []);
 
+  const updateProfile = useCallback((userName: string, examDate: string | null) => {
+    setProgress((prev) => ({
+      ...prev,
+      userName: userName.trim().slice(0, 40),
+      examDate: examDate && /^\d{4}-\d{2}-\d{2}$/.test(examDate) ? examDate : null,
+    }));
+  }, []);
+
+  const incrementOralTicket = useCallback(() => {
+    setProgress((prev) => ({
+      ...prev,
+      ...withUpdatedStreak(prev),
+      oralTicketsSolved: prev.oralTicketsSolved + 1,
+    }));
+  }, []);
+
+  const updateStudyNotes = useCallback((studyNotes: string) => {
+    setProgress((prev) => ({
+      ...prev,
+      studyNotes,
+    }));
+  }, []);
+
   const exportProgressJson = useCallback(() => {
     return JSON.stringify(progress, null, 2);
   }, [progress]);
@@ -162,17 +200,7 @@ export function useStudyProgress() {
     try {
       const parsed = JSON.parse(rawJson) as Partial<UserProgress>;
       if (!parsed || typeof parsed !== 'object') return false;
-      setProgress({
-        ...INITIAL_PROGRESS,
-        ...parsed,
-        cardBoxes: parsed.cardBoxes ?? {},
-        completedModules: Array.isArray(parsed.completedModules) ? parsed.completedModules : [],
-        answeredQuestions: parsed.answeredQuestions ?? {},
-        mistakeQuestionIds: Array.isArray(parsed.mistakeQuestionIds) ? parsed.mistakeQuestionIds : [],
-        completedScenarios: parsed.completedScenarios ?? {},
-        examHistory: Array.isArray(parsed.examHistory) ? parsed.examHistory : [],
-        theme: parsed.theme === 'dark' ? 'dark' : 'light',
-      });
+      setProgress(sanitizeLoadedProgress(parsed));
       return true;
     } catch {
       return false;
@@ -194,6 +222,9 @@ export function useStudyProgress() {
     recordQuestionResult,
     recordScenarioResult,
     addExamAttempt,
+    updateProfile,
+    incrementOralTicket,
+    updateStudyNotes,
     exportProgressJson,
     importProgressJson,
     resetProgress,

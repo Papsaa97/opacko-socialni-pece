@@ -24,7 +24,11 @@ import { normalizeCzech } from '../utils/studyLogic';
 
 interface LayoutProps {
   activeView: NavViewId;
-  onNavigate: (view: NavViewId, moduleId?: ModuleId) => void;
+  onNavigate: (
+    view: NavViewId,
+    moduleId?: ModuleId,
+    options?: { sectionId?: string; glossaryQuery?: string }
+  ) => void;
   progress: UserProgress;
   onToggleTheme: () => void;
   onExportJson: () => string;
@@ -120,7 +124,13 @@ export const Layout: React.FC<LayoutProps> = ({
     const q = normalizeCzech(searchQuery);
     if (q.length < 2) return { modules: [], glossary: [], cards: [] };
 
-    const moduleHits: { moduleId: ModuleId; moduleTitle: string; sectionTitle: string; snippet: string }[] = [];
+    const moduleHits: {
+      moduleId: ModuleId;
+      moduleTitle: string;
+      sectionId: string;
+      sectionTitle: string;
+      snippet: string;
+    }[] = [];
     for (const mod of STUDY_MODULES) {
       for (const sec of mod.sections) {
         const haystack = normalizeCzech(
@@ -130,6 +140,7 @@ export const Layout: React.FC<LayoutProps> = ({
           moduleHits.push({
             moduleId: mod.id,
             moduleTitle: mod.shortTitle,
+            sectionId: sec.id,
             sectionTitle: sec.title,
             snippet: sec.summary,
           });
@@ -455,7 +466,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             type="button"
                             onClick={() => {
                               setSearchOpen(false);
-                              onNavigate('modules', hit.moduleId);
+                              onNavigate('modules', hit.moduleId, { sectionId: hit.sectionId });
                             }}
                             className="w-full text-left p-3 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-100 dark:border-slate-800 transition-colors cursor-pointer"
                           >
@@ -484,7 +495,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             type="button"
                             onClick={() => {
                               setSearchOpen(false);
-                              onNavigate('glossary');
+                              onNavigate('glossary', undefined, { glossaryQuery: term.term });
                             }}
                             className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-slate-100 dark:border-slate-800 transition-colors cursor-pointer"
                           >

@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -11,10 +13,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { ModuleId, NavViewId, UserProgress } from '../types/study';
-import { STUDY_MODULES } from '../data';
+import { FLASHCARDS, QUIZ_QUESTIONS, STUDY_MODULES } from '../data';
 
 interface ModulesViewProps {
   selectedModuleId: ModuleId;
+  focusedSectionId?: string | null;
   onSelectModule: (moduleId: ModuleId) => void;
   progress: UserProgress;
   onToggleModuleCompleted: (moduleId: ModuleId) => void;
@@ -23,36 +26,70 @@ interface ModulesViewProps {
 
 export const ModulesView: React.FC<ModulesViewProps> = ({
   selectedModuleId,
+  focusedSectionId = null,
   onSelectModule,
   progress,
   onToggleModuleCompleted,
   onNavigate,
 }) => {
-  const currentModule =
-    STUDY_MODULES.find((m) => m.id === selectedModuleId) ?? STUDY_MODULES[0];
+  const currentIdx = Math.max(
+    0,
+    STUDY_MODULES.findIndex((m) => m.id === selectedModuleId)
+  );
+  const currentModule = STUDY_MODULES[currentIdx] ?? STUDY_MODULES[0];
+  const prevModule = currentIdx > 0 ? STUDY_MODULES[currentIdx - 1] : null;
+  const nextModule =
+    currentIdx + 1 < STUDY_MODULES.length ? STUDY_MODULES[currentIdx + 1] : null;
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // Open all sections by default on module change or first two? Let's open first two for calm layout, with 1-click "Rozbalit vše"
     const initial: Record<string, boolean> = {};
     currentModule.sections.forEach((sec, idx) => {
-      initial[sec.id] = idx < 2;
+      initial[sec.id] = focusedSectionId ? sec.id === focusedSectionId : idx < 2;
     });
+    if (
+      focusedSectionId &&
+      !currentModule.sections.some((sec) => sec.id === focusedSectionId)
+    ) {
+      currentModule.sections.forEach((sec, idx) => {
+        initial[sec.id] = idx < 2;
+      });
+    }
     setOpenSections(initial);
-  }, [currentModule]);
+  }, [currentModule, focusedSectionId]);
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const expandAll = () => {
+  const allExpanded =
+    currentModule.sections.length > 0 &&
+    currentModule.sections.every((s) => Boolean(openSections[s.id]));
+
+  const toggleExpandAll = () => {
+    const nextValue = !allExpanded;
     const next: Record<string, boolean> = {};
     currentModule.sections.forEach((s) => {
-      next[s.id] = true;
+      next[s.id] = nextValue;
     });
     setOpenSections(next);
   };
+
+  const moduleStats = useMemo(() => {
+    const modCards = FLASHCARDS.filter((c) => c.moduleId === currentModule.id);
+    const modMastered = modCards.filter((c) => (progress.cardBoxes[c.id] ?? 0) >= 2).length;
+    const modQuestions = QUIZ_QUESTIONS.filter((q) => q.moduleId === currentModule.id);
+    const modCorrect = modQuestions.filter(
+      (q) => progress.answeredQuestions[q.id] === true
+    ).length;
+    return {
+      cardsTotal: modCards.length,
+      cardsMastered: modMastered,
+      questionsTotal: modQuestions.length,
+      questionsCorrect: modCorrect,
+    };
+  }, [currentModule.id, progress.answeredQuestions, progress.cardBoxes]);
 
   const isCompleted = progress.completedModules.includes(currentModule.id);
 
@@ -69,10 +106,10 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
         </div>
         <button
           type="button"
-          onClick={expandAll}
+          onClick={toggleExpandAll}
           className="self-start px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer"
         >
-          Rozbalit všechny kapitoly
+          {allExpanded ? 'Sbalit všechny kapitoly' : 'Rozbalit všechny kapitoly'}
         </button>
       </div>
 
@@ -102,7 +139,9 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
                 </span>
                 {done && (
                   <CheckCircle2
-                    className={`w-3.5 h-3.5 ${active ? 'text-amber-300' : 'text-emerald-600 dark:text-emerald-400'}`}
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-amber-300' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}
                   />
                 )}
               </div>
@@ -118,10 +157,16 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
       <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1.5 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300">
-              <BookOpen className="w-3.5 h-3.5" />
-              {currentModule.badgeText} · cca {currentModule.estimatedMinutes} min studia
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300">
+                <BookOpen className="w-3.5 h-3.5" />
+                {currentModule.badgeText} · cca {currentModule.estimatedMinutes} min studia
+              </span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                Kartičky: <strong>{moduleStats.cardsMastered}/{moduleStats.cardsTotal}</strong> ·
+                Test: <strong>{moduleStats.questionsCorrect}/{moduleStats.questionsTotal}</strong>
+              </span>
+            </div>
             <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
               {currentModule.title}
             </h3>
@@ -168,10 +213,15 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
       <div className="space-y-3">
         {currentModule.sections.map((section) => {
           const isOpen = Boolean(openSections[section.id]);
+          const isHighlighted = focusedSectionId === section.id;
           return (
             <div
               key={section.id}
-              className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden"
+              className={`rounded-2xl bg-white dark:bg-slate-900 border overflow-hidden transition-colors ${
+                isHighlighted
+                  ? 'border-teal-500 ring-2 ring-teal-500/20'
+                  : 'border-slate-200 dark:border-slate-800'
+              }`}
             >
               <button
                 type="button"
@@ -213,7 +263,10 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
                         <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold">
                           <tr>
                             {section.table.headers.map((h) => (
-                              <th key={h} className="px-3.5 py-2.5 border-b border-slate-200 dark:border-slate-700">
+                              <th
+                                key={h}
+                                className="px-3.5 py-2.5 border-b border-slate-200 dark:border-slate-700"
+                              >
                                 {h}
                               </th>
                             ))}
@@ -229,7 +282,9 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
                                 <td
                                   key={cIdx}
                                   className={`px-3.5 py-2.5 ${
-                                    cIdx === 0 ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'
+                                    cIdx === 0
+                                      ? 'font-semibold text-slate-900 dark:text-white'
+                                      : 'text-slate-600 dark:text-slate-300'
                                   }`}
                                 >
                                   {cell}
@@ -304,6 +359,33 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Sequential Chapter Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+        {prevModule ? (
+          <button
+            type="button"
+            onClick={() => onSelectModule(prevModule.id)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs sm:text-sm font-semibold cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Okruh {prevModule.order}: {prevModule.shortTitle}
+          </button>
+        ) : (
+          <span />
+        )}
+
+        {nextModule && (
+          <button
+            type="button"
+            onClick={() => onSelectModule(nextModule.id)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold cursor-pointer ml-auto"
+          >
+            Další okruh ({nextModule.order}. {nextModule.shortTitle})
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

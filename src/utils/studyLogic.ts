@@ -1,4 +1,11 @@
-import type { Flashcard, ModuleId, QuizQuestion } from '../types/study';
+import type {
+  CaseScenario,
+  Flashcard,
+  ModuleId,
+  QuizQuestion,
+  StudyModule,
+  UserProgress,
+} from '../types/study';
 
 export const CARE_LAW_2026_CONSTANTS = {
   ROOM_MAX_SHARED_CZK: 335,
@@ -318,4 +325,142 @@ export function formatTimeMMSS(totalSeconds: number): string {
   const mins = Math.floor(clamped / 60);
   const secs = clamped % 60;
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+export function getDaysUntilExam(
+  examDate: string | null,
+  todayDateStr?: string
+): number | null {
+  if (!examDate || !/^\d{4}-\d{2}-\d{2}$/.test(examDate)) return null;
+  const now = new Date();
+  const baseTodayStr =
+    todayDateStr ??
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate()
+    ).padStart(2, '0')}`;
+  const target = new Date(`${examDate}T00:00:00`);
+  const today = new Date(`${baseTodayStr}T00:00:00`);
+  if (Number.isNaN(target.getTime()) || Number.isNaN(today.getTime())) return null;
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export interface StudyRecommendation {
+  title: string;
+  description: string;
+  actionLabel: string;
+  actionType: 'mistakes' | 'module' | 'flashcards' | 'exam' | 'scenarios';
+  moduleId?: ModuleId;
+}
+
+export function getRecommendedNextAction(
+  progress: UserProgress,
+  modules: StudyModule[],
+  flashcards: Flashcard[],
+  questions: QuizQuestion[],
+  scenarios: CaseScenario[]
+): StudyRecommendation {
+  if (progress.mistakeQuestionIds.length > 0) {
+    return {
+      title: `Oprav si ${progress.mistakeQuestionIds.length} ${
+        progress.mistakeQuestionIds.length === 1
+          ? 'otázku v Chybovníku'
+          : progress.mistakeQuestionIds.length < 5
+          ? 'otázky v Chybovníku'
+          : 'otázek v Chybovníku'
+      }`,
+      description:
+        'Nejrychlejší cesta ke zlepšení skóre: zopakuj si přesně otázky, kde jsi minule zaváhala.',
+      actionLabel: 'Opravit chyby',
+      actionType: 'mistakes',
+    };
+  }
+
+  let weakestMod = modules[0];
+  let lowestScore = Number.POSITIVE_INFINITY;
+
+  for (const mod of modules) {
+    const modDone = progress.completedModules.includes(mod.id) ? 1 : 0;
+    const modCards = flashcards.filter((c) => c.moduleId === mod.id);
+    const modMastered =
+      modCards.length > 0
+        ? modCards.filter((c) => (progress.cardBoxes[c.id] ?? 0) >= 2).length / modCards.length
+        : 1;
+    const modQs = questions.filter((q) => q.moduleId === mod.id);
+    const modCorrect =
+      modQs.length > 0
+        ? modQs.filter((q) => progress.answeredQuestions[q.id] === true).length / modQs.length
+        : 1;
+    const score = modDone * 0.35 + modMastered * 0.3 + modCorrect * 0.35;
+    if (score < lowestScore) {
+      lowestScore = score;
+      weakestMod = mod;
+    }
+  }
+
+  if (weakestMod && lowestScore < 0.75) {
+    return {
+      title: `Posilni okruh ${weakestMod.order}: ${weakestMod.shortTitle}`,
+      description:
+        'Tento okruh máš zatím nejméně procvičený. Projdi si klíčové body a otestuj se v kvízu.',
+      actionLabel: 'Studovat tento okruh',
+      actionType: 'module',
+      moduleId: weakestMod.id,
+    };
+  }
+
+  const unmasteredCards = flashcards.filter((c) => (progress.cardBoxes[c.id] ?? 0) < 2).length;
+  if (unmasteredCards > 0) {
+    return {
+      title: `Upevni si paměť u ${unmasteredCards} kartiček`,
+      description:
+        'Okruhy už znáš skvěle – krátká série kartiček ti pojistí paragrafy a čísla do dlouhodobé paměti.',
+      actionLabel: 'Spustit kartičky',
+      actionType: 'flashcards',
+    };
+  }
+
+  const solvedScenarios = scenarios.filter((s) => progress.completedScenarios[s.id]).length;
+  if (solvedScenarios < scenarios.length || progress.oralTicketsSolved < 2) {
+    return {
+      title: 'Vyzkoušej si losování k ústní zkoušce před komisí',
+      description:
+        'Máš natrénováno na testy – teď si vylosuj zkušební lístek a zkus odpovědět nahlas jako naostro.',
+      actionLabel: 'Vylosovat otázku',
+      actionType: 'scenarios',
+    };
+  }
+
+  return {
+    title: 'Jsi skvěle připravená! Dej si generálku Zkouškou nanečisto',
+    description:
+      'Projdi si 25 otázek s 30minutovým časovačem napříč všemi 8 okruhy a ověř si jistotu nad 75 %.',
+    actionLabel: 'Spustit Zkoušku nanečisto',
+    actionType: 'exam',
+  };
+}
+
+export interface OralExamTicket {
+  module: StudyModule;
+  scenario: CaseScenario;
+}
+
+export function drawOralExamTicket(
+  modules: StudyModule[],
+  scenarios: CaseScenario[],
+  excludeModuleId?: ModuleId,
+  excludeScenarioId?: string
+): OralExamTicket {
+  const modPool =
+    excludeModuleId && modules.length > 1
+      ? modules.filter((m) => m.id !== excludeModuleId)
+      : modules;
+  const mod = modPool[Math.floor(Math.random() * modPool.length)] ?? modules[0];
+
+  const scenPool =
+    excludeScenarioId && scenarios.length > 1
+      ? scenarios.filter((s) => s.id !== excludeScenarioId)
+      : scenarios;
+  const scenario = scenPool[Math.floor(Math.random() * scenPool.length)] ?? scenarios[0];
+
+  return { module: mod, scenario };
 }

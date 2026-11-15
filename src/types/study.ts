@@ -117,6 +117,10 @@ export interface ExamAttempt {
 export type CardBoxLevel = 0 | 1 | 2 | 3;
 
 export interface UserProgress {
+  userName: string;
+  examDate: string | null;
+  studyNotes: string;
+  oralTicketsSolved: number;
   cardBoxes: Record<string, CardBoxLevel>;
   completedModules: ModuleId[];
   answeredQuestions: Record<string, boolean>;

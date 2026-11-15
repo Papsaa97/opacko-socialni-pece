@@ -1,32 +1,42 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Award,
   BookOpen,
+  Calendar,
   CheckCircle2,
   ClipboardCheck,
+  Compass,
   FileText,
   Flame,
   HeartHandshake,
   Layers,
+  Pencil,
   ShieldAlert,
   Sparkles,
   Stethoscope,
 } from 'lucide-react';
 import type { ModuleId, NavViewId, UserProgress } from '../types/study';
 import { CASE_SCENARIOS, FLASHCARDS, QUIZ_QUESTIONS, STUDY_MODULES } from '../data';
+import { getDaysUntilExam, getRecommendedNextAction } from '../utils/studyLogic';
 
 interface DashboardViewProps {
   progress: UserProgress;
   onNavigate: (view: NavViewId, moduleId?: ModuleId) => void;
   onStartQuickQuiz: (mode: 'quick10' | 'exam' | 'mistakes') => void;
+  onUpdateProfile: (userName: string, examDate: string | null) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   progress,
   onNavigate,
   onStartQuickQuiz,
+  onUpdateProfile,
 }) => {
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [nameInput, setNameInput] = useState(progress.userName);
+  const [dateInput, setDateInput] = useState(progress.examDate ?? '');
+
   const masteredCards = FLASHCARDS.filter((c) => (progress.cardBoxes[c.id] ?? 0) >= 2).length;
   const correctQuestions = QUIZ_QUESTIONS.filter((q) => progress.answeredQuestions[q.id] === true).length;
   const solvedScenarios = CASE_SCENARIOS.filter((s) => progress.completedScenarios[s.id]).length;
@@ -39,27 +49,141 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     (solvedScenarios / CASE_SCENARIOS.length) * 0.15;
   const readinessPct = Math.round(totalWeights * 100);
 
+  const daysUntilExam = useMemo(() => getDaysUntilExam(progress.examDate), [progress.examDate]);
+
+  const recommendation = useMemo(
+    () =>
+      getRecommendedNextAction(
+        progress,
+        STUDY_MODULES,
+        FLASHCARDS,
+        QUIZ_QUESTIONS,
+        CASE_SCENARIOS
+      ),
+    [progress]
+  );
+
+  const handleSaveGoal = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateProfile(nameInput, dateInput || null);
+    setEditingGoal(false);
+  };
+
+  const handleLaunchRecommendation = () => {
+    if (recommendation.actionType === 'mistakes') {
+      onStartQuickQuiz('mistakes');
+    } else if (recommendation.actionType === 'exam') {
+      onStartQuickQuiz('exam');
+    } else if (recommendation.actionType === 'module' && recommendation.moduleId) {
+      onNavigate('modules', recommendation.moduleId);
+    } else if (recommendation.actionType === 'flashcards') {
+      onNavigate('flashcards');
+    } else {
+      onNavigate('scenarios');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Hero Banner */}
       <section className="rounded-3xl bg-gradient-to-br from-teal-700 via-teal-800 to-emerald-900 text-white p-6 sm:p-8 shadow-lg relative overflow-hidden">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="max-w-2xl space-y-2.5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-teal-50 text-xs font-semibold tracking-wide">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              Kurz Pracovník v sociálních službách (§ 116) · Domov pro seniory
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-teal-50 text-xs font-semibold tracking-wide">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                Kurz Pracovník v sociálních službách (§ 116) · Domov pro seniory
+              </span>
+              {daysUntilExam !== null && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-100 text-xs font-bold">
+                  <Calendar className="w-3.5 h-3.5 text-amber-300" />
+                  {daysUntilExam > 0
+                    ? `Do zkoušky zbývá ${daysUntilExam} ${
+                        daysUntilExam === 1 ? 'den' : daysUntilExam < 5 ? 'dny' : 'dní'
+                      }`
+                    : daysUntilExam === 0
+                    ? 'Dnes je den zkoušky – zvládneš to!'
+                    : `Termín zkoušky (${new Date(`${progress.examDate}T00:00:00`).toLocaleDateString('cs-CZ')})`}
+                </span>
+              )}
+            </div>
+
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Ahoj! Dáme opáčko ke zkoušce v klidu a přehledně.
+              Ahoj{progress.userName ? ` ${progress.userName}` : ''}! Dáme opáčko ke zkoušce v klidu a přehledně.
             </h2>
             <p className="text-teal-100 text-sm sm:text-base leading-relaxed">
               Všechny klíčové paragrafy zákona č. 108/2006 Sb., aktuální částky pro rok 2026,
               ošetřovatelské základy, polohování, validaci i první pomoc na jednom místě. Funguje i
               offline v mobilu.
             </p>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setNameInput(progress.userName);
+                  setDateInput(progress.examDate ?? '');
+                  setEditingGoal((prev) => !prev);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-teal-50 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                {progress.userName || progress.examDate
+                  ? 'Upravit jméno a termín zkoušky'
+                  : 'Nastavit oslovení a termín zkoušky'}
+              </button>
+            </div>
+
+            {editingGoal && (
+              <form
+                onSubmit={handleSaveGoal}
+                className="mt-3 p-4 rounded-2xl bg-slate-950/35 border border-white/20 backdrop-blur-xs grid grid-cols-1 sm:grid-cols-3 gap-3 items-end"
+              >
+                <div>
+                  <label htmlFor="profile-name" className="block text-[11px] font-semibold text-teal-100 mb-1">
+                    Jak ti má appka říkat?
+                  </label>
+                  <input
+                    id="profile-name"
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="např. Terko, Káťo…"
+                    className="w-full px-3 py-2 rounded-xl bg-white text-slate-900 text-xs sm:text-sm font-medium outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="profile-exam-date" className="block text-[11px] font-semibold text-teal-100 mb-1">
+                    Datum zkoušky (nepovinné)
+                  </label>
+                  <input
+                    id="profile-exam-date"
+                    type="date"
+                    value={dateInput}
+                    onChange={(e) => setDateInput(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white text-slate-900 text-xs sm:text-sm font-medium outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Uložit cíl
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingGoal(false)}
+                    className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold cursor-pointer"
+                  >
+                    Zavřít
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4 sm:p-5 min-w-[230px]">
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4 sm:p-5 min-w-[235px]">
             <div className="flex items-center justify-between text-xs font-medium text-teal-100 mb-1.5">
               <span>Připravenost ke zkoušce</span>
               <span className="font-bold text-white text-base">{readinessPct} %</span>
@@ -90,6 +214,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Personalized Smart Recommendation */}
+      <section className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-50 via-emerald-50 to-amber-50/70 dark:from-teal-950/50 dark:via-slate-900 dark:to-amber-950/30 border border-teal-200/80 dark:border-teal-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+              Doporučení na dnešek
+            </div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
+              {recommendation.title}
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+              {recommendation.description}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleLaunchRecommendation}
+          className="self-start sm:self-center shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
+        >
+          {recommendation.actionLabel}
+          <ArrowRight className="w-4 h-4" />
+        </button>
       </section>
 
       {/* Quick Action Cards */}
@@ -171,11 +323,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <HeartHandshake className="w-5 h-5" />
             </div>
             <div className="font-bold text-slate-900 dark:text-white flex items-center justify-between">
-              Modelové situace
+              Ústní zkouška & Praxe
               <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              12 praktických případů z domova pro seniory včetně osnovy k ústní zkoušce.
+              Trenažér losování před komisí + {CASE_SCENARIOS.length} modelových situací z DS.
             </p>
           </button>
         </div>
@@ -193,10 +345,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex-1">
             <div className="font-bold text-slate-900 dark:text-white">
-              Interaktivní mapa dekubitů, Nortonová & Kalkulačka 2026
+              Mapa dekubitů, Kalkulačka 2026 & KPR Metronom
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-              Klikací lidské tělo v různých polohách + výpočet stupně závislosti a 15 % zůstatku.
+              Klikací tělo, škála Nortonové, výpočet příspěvku + 15 % zůstatku i KPR 110/min.
             </p>
           </div>
           <ArrowRight className="w-5 h-5 text-amber-700 dark:text-amber-300 shrink-0" />
@@ -246,6 +398,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const modCorrect = modQuestions.filter(
               (q) => progress.answeredQuestions[q.id] === true
             ).length;
+            const modPct = Math.round(
+              ((isDone ? 0.35 : 0) +
+                (modCards.length > 0 ? (modMastered / modCards.length) * 0.3 : 0) +
+                (modQuestions.length > 0 ? (modCorrect / modQuestions.length) * 0.35 : 0)) *
+                100
+            );
 
             return (
               <div
@@ -261,7 +419,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {mod.title}
                     </h4>
                   </div>
-                  {isDone && (
+                  {isDone ? (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold shrink-0"
                       title="Okruh označen jako prostudovaný"
@@ -269,12 +427,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Hotovo
                     </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-slate-400 shrink-0">{modPct} %</span>
                   )}
                 </div>
 
                 <p className="text-xs text-slate-500 dark:text-slate-400">{mod.subtitle}</p>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      isDone || modPct >= 75 ? 'bg-emerald-500' : 'bg-teal-500'
+                    }`}
+                    style={{ width: `${modPct}%` }}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-3">
                     <span>
                       Kartičky: <strong>{modMastered}/{modCards.length}</strong>

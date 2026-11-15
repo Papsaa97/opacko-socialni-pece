@@ -1,11 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertCircle,
+  Brain,
   Calculator,
+  Heart,
   HeartPulse,
+  PhoneCall,
+  Play,
   ShieldCheck,
+  Square,
   UserCheck,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   COMPETENCY_MATRIX,
@@ -20,7 +27,40 @@ import {
   calculateNortonScore,
 } from '../utils/studyLogic';
 
-type ToolTab = 'decubitus' | 'calculator' | 'vitals';
+type ToolTab = 'decubitus' | 'calculator' | 'vitals' | 'firstaid';
+
+const DEMENTIA_DELIRIUM_DEPRESSION = [
+  {
+    feature: 'Nástup a příčina',
+    dementia: 'Plíživý, měsíce až roky (Alzheimerova nemoc, vaskulární).',
+    delirium: 'Náhlý – hodiny až dny! Tělesná příčina (dehydratace, moč. infekce, léky, bolest).',
+    depression: 'Týdny až měsíce (často po ztrátě partnera, nástupu do DS, osamění).',
+  },
+  {
+    feature: 'Denní kolísání',
+    dementia: 'Relativně stabilní (může být večerní sundowning).',
+    delirium: 'Výrazně kolísá během dne (ráno klidnější, večer/v noci výrazná zmatenost a halucinace).',
+    depression: 'Ranní pesima – ráno nejhůř, k večeru se nálada může lehce zlepšovat.',
+  },
+  {
+    feature: 'Vědomí a pozornost',
+    dementia: 'Vědomí jasné (až do pozdních fází), narušená paměť a orientace.',
+    delirium: 'Zastřené vědomí, rozptýlená pozornost, dezorientace místem/časem.',
+    depression: 'Vědomí jasné; na otázky odpovídá zpomaleně nebo „Nevím“ (chybí motivace).',
+  },
+  {
+    feature: 'Vratnost stavu',
+    dementia: 'Progresivní, nevratná – cílem je zachování kvality života a důstojnosti.',
+    delirium: 'VRATNÉ, pokud se rychle léčí vyvolávající příčina!',
+    depression: 'LÉČITELNÁ (psychoterapie, aktivizace, antidepresiva).',
+  },
+  {
+    feature: 'Okamžitá role PSS',
+    dementia: 'Validace, klidná rutina, biografie, nesporovat a neopravovat bludy silou.',
+    delirium: 'IHNED hlásit sestře/lékaři, zklidnit, zabezpečit proti pádu, sledovat příjem tekutin!',
+    depression: 'Všímat si odmítání jídla a ztráty zájmu, citlivě naslouchat, zapojit do drobných radostí a hlásit sestře.',
+  },
+] as const;
 
 export const ToolsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ToolTab>('decubitus');
@@ -97,6 +137,73 @@ export const ToolsView: React.FC = () => {
     setUnmetNeeds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // --- Tab 4: KPR Metronome (110 bpm -> 545 ms) & FAST checklist ---
+  const [cprActive, setCprActive] = useState(false);
+  const [cprBeatCount, setCprBeatCount] = useState(0);
+  const [cprSoundOn, setCprSoundOn] = useState(true);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [fastChecks, setFastChecks] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!cprActive) return;
+    const intervalMs = Math.round(60000 / 110); // 110 compressions/min (target 100-120/min)
+    const id = window.setInterval(() => {
+      setCprBeatCount((prev) => {
+        const next = prev >= 30 ? 1 : prev + 1;
+        if (cprSoundOn) {
+          try {
+            const Ctx =
+              window.AudioContext ||
+              (window as unknown as { webkitAudioContext?: typeof AudioContext })
+                .webkitAudioContext;
+            if (Ctx) {
+              if (!audioCtxRef.current) {
+                audioCtxRef.current = new Ctx();
+              }
+              const ctx = audioCtxRef.current;
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.frequency.value = next === 30 ? 880 : 620;
+              gain.gain.setValueAtTime(0.08, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.07);
+            }
+          } catch {
+            // Ignore in headless environments without AudioContext
+          }
+        }
+        return next;
+      });
+    }, intervalMs);
+
+    return () => window.clearInterval(id);
+  }, [cprActive, cprSoundOn]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        audioCtxRef.current?.close();
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+  }, []);
+
+  const toggleCprMetronome = () => {
+    if (cprActive) {
+      setCprActive(false);
+      setCprBeatCount(0);
+    } else {
+      setCprBeatCount(1);
+      setCprActive(true);
+    }
+  };
+
+  const anyFastFlag = Object.values(fastChecks).some(Boolean);
+
   return (
     <div className="space-y-6">
       <div>
@@ -104,8 +211,8 @@ export const ToolsView: React.FC = () => {
           Praktické pomůcky & Kalkulačky (2026)
         </h2>
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Interaktivní mapa proleženin, škála Nortonové, výpočet příspěvku na péči i pravidlo 15 %
-          zůstatku v domově pro seniory.
+          Interaktivní mapa proleženin, škála Nortonové, výpočet příspěvku na péči i KPR metronom a
+          rychlá rozvaha v krizových situacích.
         </p>
       </div>
 
@@ -146,6 +253,18 @@ export const ToolsView: React.FC = () => {
         >
           <HeartPulse className="w-4 h-4" />
           Vitální funkce & Kompetence
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('firstaid')}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer ${
+            activeTab === 'firstaid'
+              ? 'bg-rose-600 border-rose-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-rose-400'
+          }`}
+        >
+          <PhoneCall className="w-4 h-4" />
+          SOS První pomoc & KPR
         </button>
       </div>
 
@@ -198,42 +317,54 @@ export const ToolsView: React.FC = () => {
                   aria-label="Anatomická silueta s rizikovými body dekubitů"
                 >
                   {bodyPosition === 'back' && (
-                    <g fill="currentColor" className="text-teal-700/15 dark:text-teal-400/15 stroke-teal-700/60 dark:stroke-teal-400/60" strokeWidth="2.5">
-                      {/* Mattress line */}
+                    <g
+                      fill="currentColor"
+                      className="text-teal-700/15 dark:text-teal-400/15 stroke-teal-700/60 dark:stroke-teal-400/60"
+                      strokeWidth="2.5"
+                    >
                       <line x1="25" y1="400" x2="295" y2="400" strokeDasharray="6 4" />
-                      {/* Head */}
                       <circle cx="160" cy="48" r="26" />
-                      {/* Torso */}
                       <path d="M122 86 Q160 76 198 86 L208 228 Q160 245 112 228 Z" />
-                      {/* Left & Right Arms */}
                       <path d="M120 88 L88 188 L76 248 L96 254 L108 192 L124 125" />
                       <path d="M200 88 L232 188 L244 248 L224 254 L212 192 L196 125" />
-                      {/* Left & Right Legs */}
                       <path d="M116 228 L122 385 L146 385 L154 240" />
                       <path d="M204 228 L198 385 L174 385 L166 240" />
                     </g>
                   )}
 
                   {bodyPosition === 'side' && (
-                    <g fill="currentColor" className="text-teal-700/15 dark:text-teal-400/15 stroke-teal-700/60 dark:stroke-teal-400/60" strokeWidth="2.5">
+                    <g
+                      fill="currentColor"
+                      className="text-teal-700/15 dark:text-teal-400/15 stroke-teal-700/60 dark:stroke-teal-400/60"
+                      strokeWidth="2.5"
+                    >
                       <line x1="25" y1="400" x2="295" y2="400" strokeDasharray="6 4" />
-                      {/* Head profile */}
                       <ellipse cx="160" cy="50" rx="24" ry="27" />
-                      {/* Side torso */}
                       <path d="M140 82 Q165 80 176 92 L182 224 Q158 240 138 224 Z" />
-                      {/* Arm bent forward */}
-                      <path d="M148 112 L114 162 L134 205" fill="none" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
-                      {/* Legs slightly bent */}
+                      <path
+                        d="M148 112 L114 162 L134 205"
+                        fill="none"
+                        strokeWidth="14"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                       <path d="M145 224 L172 300 L152 382 L172 384 L192 300 L174 224" />
                     </g>
                   )}
 
                   {bodyPosition === 'sitting' && (
-                    <g fill="currentColor" className="text-teal-700/15 dark:text-teal-400/15 stroke-teal-700/60 dark:stroke-teal-400/60" strokeWidth="2.5">
-                      {/* Wheelchair outline */}
-                      <path d="M88 95 L108 242 L222 242 L236 376 L258 376" fill="none" strokeWidth="4" strokeLinecap="round" />
+                    <g
+                      fill="currentColor"
+                      className="text-teal-700/15 dark:text-teal-400/15 stroke-teal-700/60 dark:stroke-teal-400/60"
+                      strokeWidth="2.5"
+                    >
+                      <path
+                        d="M88 95 L108 242 L222 242 L236 376 L258 376"
+                        fill="none"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                      />
                       <circle cx="128" cy="316" r="56" fill="none" strokeWidth="3.5" strokeDasharray="6 3" />
-                      {/* Sitting person */}
                       <circle cx="136" cy="54" r="24" />
                       <path d="M114 88 L118 228 L216 232 L226 368 L244 368 L234 218 L152 210 L146 88 Z" />
                     </g>
@@ -395,10 +526,14 @@ export const ToolsView: React.FC = () => {
                 },
               ].map((field) => (
                 <div key={field.key} className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor={`norton-${field.key}`}
+                    className="block text-xs font-bold text-slate-700 dark:text-slate-300"
+                  >
                     {field.label}
                   </label>
                   <select
+                    id={`norton-${field.key}`}
                     value={norton[field.key]}
                     onChange={(e) =>
                       setNorton((prev) => ({
@@ -525,20 +660,41 @@ export const ToolsView: React.FC = () => {
 
           {/* Home Fee & 15% Remainder Calculator */}
           <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-5">
-            <div>
-              <h3 className="text-lg font-bold">
-                Výpočet úhrady v Domově pro seniory a pravidlo 15 % zůstatku (§ 73)
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Zákonné stropy 2026: ubytování max. 335 Kč (vícelůžkový) / 380 Kč (jednolůžkový),
-                celodenní strava max. 290 Kč/den.
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold">
+                  Výpočet úhrady v Domově pro seniory a pravidlo 15 % zůstatku (§ 73)
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                  Zákonné stropy 2026: ubytování max. 335 Kč (vícelůžkový) / 380 Kč (jednolůžkový),
+                  celodenní strava max. 290 Kč/den.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMonthlyPensionCzk(10000)}
+                  className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold text-amber-800 dark:text-amber-200 cursor-pointer"
+                >
+                  Ukázka: nízký důchod 10 000 Kč
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthlyPensionCzk(22000)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 cursor-pointer"
+                >
+                  Vyšší důchod 22 000 Kč
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
               <div>
-                <label className="block text-xs font-bold mb-1">Typ pokoje</label>
+                <label htmlFor="fee-room-type" className="block text-xs font-bold mb-1">
+                  Typ pokoje
+                </label>
                 <select
+                  id="fee-room-type"
                   value={isSingleRoom ? 'single' : 'shared'}
                   onChange={(e) => {
                     const single = e.target.value === 'single';
@@ -553,10 +709,11 @@ export const ToolsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1">
+                <label htmlFor="fee-days" className="block text-xs font-bold mb-1">
                   Dní v měsíci ({daysInMonth})
                 </label>
                 <select
+                  id="fee-days"
                   value={daysInMonth}
                   onChange={(e) => setDaysInMonth(Number(e.target.value))}
                   className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold"
@@ -568,10 +725,26 @@ export const ToolsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1">
+                <label htmlFor="fee-daily-room" className="block text-xs font-bold mb-1">
+                  Denní ubytování (max {isSingleRoom ? 380 : 335} Kč)
+                </label>
+                <input
+                  id="fee-daily-room"
+                  type="number"
+                  min={0}
+                  max={isSingleRoom ? 380 : 335}
+                  value={dailyRoomCzk}
+                  onChange={(e) => setDailyRoomCzk(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="fee-daily-food" className="block text-xs font-bold mb-1">
                   Denní strava (max 290 Kč)
                 </label>
                 <input
+                  id="fee-daily-food"
                   type="number"
                   min={0}
                   max={290}
@@ -582,8 +755,11 @@ export const ToolsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1">Měsíční důchod klienta (Kč)</label>
+                <label htmlFor="fee-monthly-pension" className="block text-xs font-bold mb-1">
+                  Měsíční důchod klienta (Kč)
+                </label>
                 <input
+                  id="fee-monthly-pension"
                   type="number"
                   min={0}
                   step={500}
@@ -707,6 +883,198 @@ export const ToolsView: React.FC = () => {
                         {row.pss}
                       </td>
                       <td className="p-3.5 text-slate-600 dark:text-slate-300">{row.nurse}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: SOS FIRST AID, CPR METRONOME, FAST & 3D COMPARISON */}
+      {activeTab === 'firstaid' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Interactive CPR 110/min Metronome */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 space-y-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-xs font-bold mb-1">
+                    Resuscitace dospělého (KPR 30 : 2)
+                  </span>
+                  <h3 className="text-lg font-extrabold">Nácvikový metronom 110 úderů/min</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCprSoundOn((s) => !s)}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  aria-label={cprSoundOn ? 'Vypnout zvuk metronomu' : 'Zapnout zvuk metronomu'}
+                  title={cprSoundOn ? 'Zvuk zapnutý' : 'Zvuk vypnutý'}
+                >
+                  {cprSoundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-150 ${
+                      cprActive
+                        ? 'bg-rose-600 text-white scale-105 shadow-md'
+                        : 'bg-white dark:bg-slate-900 text-rose-600 border border-rose-200 dark:border-rose-800'
+                    }`}
+                  >
+                    <Heart className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-rose-700 dark:text-rose-300">
+                      {cprActive ? `Stlačení ${cprBeatCount} / 30` : 'Tempo 100–120/min'}
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-300">
+                      {cprBeatCount === 30
+                        ? 'Nyní 2 vdechy (nebo pokračujte bez přerušení v masáži!)'
+                        : 'Hloubka 5–6 cm · střed hrudníku · nechat hrudník uvolnit'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={toggleCprMetronome}
+                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer transition-colors ${
+                    cprActive ? 'bg-slate-800 hover:bg-slate-900' : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  {cprActive ? (
+                    <>
+                      <Square className="w-4 h-4" /> Zastavit metronom KPR
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4" /> Spustit metronom KPR (110/min)
+                    </>
+                  )}
+                </button>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Gasping (lapavé dechy) = zástava → ihned volat 155 + AED!
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive FAST Test Checklist */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs font-bold mb-1">
+                  Cévní mozková příhoda (CMP)
+                </span>
+                <h3 className="text-lg font-extrabold">Interaktivní rychlý test FAST</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Zaškrtněte jakýkoliv zjištěný příznak u seniora:
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {[
+                  {
+                    id: 'face',
+                    letter: 'F',
+                    title: 'Face (Obličej)',
+                    desc: 'Pokleslý ústní koutek při pokusu o úsměv nebo cenění zubů.',
+                  },
+                  {
+                    id: 'arm',
+                    letter: 'A',
+                    title: 'Arm (Ruka)',
+                    desc: 'Jedna předpažená paže klesá nebo je náhle slabší / necitlivá.',
+                  },
+                  {
+                    id: 'speech',
+                    letter: 'S',
+                    title: 'Speech (Řeč)',
+                    desc: 'Nesrozumitelná, setřelá řeč nebo klient nerozumí jednoduché větě.',
+                  },
+                ].map((item) => {
+                  const checked = Boolean(fastChecks[item.id]);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        setFastChecks((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+                      }
+                      className={`w-full text-left p-3 rounded-2xl border flex items-start gap-3 transition-colors cursor-pointer ${
+                        checked
+                          ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400 dark:border-rose-700'
+                          : 'bg-slate-50 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-amber-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                        {item.letter}
+                      </span>
+                      <div>
+                        <div className="text-sm font-bold">{item.title}</div>
+                        <div className="text-xs text-slate-600 dark:text-slate-300">{item.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div
+                className={`p-3.5 rounded-2xl text-xs sm:text-sm font-semibold ${
+                  anyFastFlag
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {anyFastFlag
+                  ? 'T · TIME (Čas)! Stačí JEDINÝ příznak: okamžitě volejte 155, zavolejte sestru, nic nepodávejte ústy a poznamenejte PŘESNÝ čas vzniku!'
+                  : 'T · Time: Čas rozhoduje o záchraně mozku – zapamatujte si vždy přesnou hodinu začátku potíží.'}
+              </div>
+            </div>
+          </div>
+
+          {/* 3D Differential Table: Demence vs. Delirium vs. Deprese */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <Brain className="w-5 h-5 text-teal-600" />
+              Rozlišení „3D“ u seniorů: Demence vs. Delirium vs. Deprese
+            </h3>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+              <table className="w-full text-xs sm:text-sm text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800 font-bold">
+                  <tr>
+                    <th className="p-3.5 border-b border-slate-200 dark:border-slate-700">Znak</th>
+                    <th className="p-3.5 border-b border-slate-200 dark:border-slate-700 text-teal-700 dark:text-teal-300">
+                      Demence
+                    </th>
+                    <th className="p-3.5 border-b border-slate-200 dark:border-slate-700 text-rose-700 dark:text-rose-300">
+                      Delirium (akutní!)
+                    </th>
+                    <th className="p-3.5 border-b border-slate-200 dark:border-slate-700 text-amber-700 dark:text-amber-300">
+                      Deprese
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {DEMENTIA_DELIRIUM_DEPRESSION.map((row) => (
+                    <tr
+                      key={row.feature}
+                      className="border-b last:border-b-0 border-slate-100 dark:border-slate-800"
+                    >
+                      <td className="p-3.5 font-semibold align-top">{row.feature}</td>
+                      <td className="p-3.5 text-slate-600 dark:text-slate-300 align-top">
+                        {row.dementia}
+                      </td>
+                      <td className="p-3.5 text-rose-800 dark:text-rose-200 font-medium align-top">
+                        {row.delirium}
+                      </td>
+                      <td className="p-3.5 text-slate-600 dark:text-slate-300 align-top">
+                        {row.depression}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

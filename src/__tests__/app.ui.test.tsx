@@ -82,6 +82,8 @@ describe('End-to-End UI Integration Flows (<App />)', () => {
     expect(screen.getByText(/Zodpovězeno: 1 \/ 25/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Odevzdat a vyhodnotit zkoušku/i }));
+    expect(screen.getByText(/Zbývá 24 nezodpovězených otázek/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Potvrdit odevzdání/i }));
     expect(screen.getByText(/\/ 25 bodů/i)).toBeInTheDocument();
     expect(screen.getByText(/Výsledek podle okruhů/i)).toBeInTheDocument();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
@@ -128,12 +130,69 @@ describe('End-to-End UI Integration Flows (<App />)', () => {
     expect(screen.getByText(/II\. stupeň – středně těžká závislost/i)).toBeInTheDocument();
 
     // Change monthly pension input to 10000 and verify 15% remainder (1 500 Kč) & reduced payment (8 500 Kč)
-    const numberInputs = screen.getAllByRole('spinbutton');
-    // Second number input is Měsíční důchod klienta
-    fireEvent.change(numberInputs[1], { target: { value: '10000' } });
+    const pensionInput = screen.getByLabelText(/Měsíční důchod klienta/i);
+    fireEvent.change(pensionInput, { target: { value: '10000' } });
     expect(screen.getByText(/Sníženo zákonem – důchod nestačí/i)).toBeInTheDocument();
     expect(screen.getByText(/8\s*500 Kč/i)).toBeInTheDocument();
     expect(screen.getAllByText(/1\s*500 Kč/i).length).toBeGreaterThanOrEqual(1);
+
+    // Switch to Tab 4: SOS První pomoc & KPR
+    fireEvent.click(screen.getByRole('button', { name: /SOS První pomoc & KPR/i }));
+    expect(screen.getByText(/Nácvikový metronom 110 úderů\/min/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Face \(Obličej\)/i }));
+    expect(screen.getByText(/Stačí JEDINÝ příznak: okamžitě volejte 155/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Spustit metronom KPR/i }));
+    expect(screen.getByText(/Stlačení 1 \/ 30/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Zastavit metronom KPR/i }));
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('personalizes greeting & exam countdown and runs Oral Exam Ticket simulator', () => {
+    render(<App />);
+
+    // Customize profile greeting and target exam date
+    fireEvent.click(screen.getByRole('button', { name: /Nastavit oslovení a termín zkoušky/i }));
+    fireEvent.change(screen.getByLabelText(/Jak ti má appka říkat\?/i), {
+      target: { value: 'Terko' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Uložit cíl/i }));
+    expect(screen.getByText(/Ahoj Terko! Dáme opáčko ke zkoušce v klidu a přehledně\./i)).toBeInTheDocument();
+
+    // Navigate to Oral Exam Simulator
+    fireEvent.click(screen.getAllByRole('button', { name: /Modelové situace/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Trenažér ústní zkoušky \(Losování\)/i }));
+    expect(screen.getByText(/Vylosovaný zkušební lístek/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Moje poznámky z potítka/i), {
+      target: { value: 'Zmínit § 89 a hned informovat sestru' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Odkrýt, co chce slyšet komise/i }));
+    expect(screen.getByText(/Co chce komise slyšet k okruhu & chytáky/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Umím – započítat lístek/i }));
+    expect(screen.getByText(/Ústní lístky: 1/i)).toBeInTheDocument();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('supports Flashcards reverse mode and Glossary active recall mode', () => {
+    render(<App />);
+
+    // Flashcards reverse mode
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`Kartičky \\(${FLASHCARDS.length}\\)`, 'i') }));
+    fireEvent.click(screen.getByRole('button', { name: /Obrátit otázku ↔ odpověď/i }));
+    expect(screen.getByRole('button', { name: /Obrácený režim ✓/i })).toBeInTheDocument();
+    expect(screen.getByText(FLASHCARDS[0].answer)).toBeInTheDocument();
+
+    // Glossary active recall mode
+    fireEvent.click(screen.getByRole('button', { name: /Slovník pojmů/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Režim zkoušení \(skrýt definice\)/i }));
+    const revealButtons = screen.getAllByRole('button', {
+      name: /Zkuste pojem vysvětlit nahlas → kliknutím zobrazíte definici/i,
+    });
+    expect(revealButtons.length).toBeGreaterThan(10);
+    fireEvent.click(revealButtons[0]);
+    expect(screen.getAllByRole('button', {
+      name: /Zkuste pojem vysvětlit nahlas → kliknutím zobrazíte definici/i,
+    }).length).toBe(revealButtons.length - 1);
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 

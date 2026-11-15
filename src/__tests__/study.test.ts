@@ -10,10 +10,14 @@ import {
   calculateCareAllowance,
   calculateHomeFee,
   calculateNortonScore,
+  drawOralExamTicket,
   generateExamSet,
+  getDaysUntilExam,
+  getRecommendedNextAction,
   normalizeCzech,
   selectSmartFlashcards,
 } from '../utils/studyLogic';
+import { INITIAL_PROGRESS } from '../hooks/useStudyProgress';
 
 describe('Content Completeness & Integrity', () => {
   it('contains all 8 unique study modules with rich sections, tips, and traps', () => {
@@ -147,5 +151,45 @@ describe('Czech Normalization & Statutory 2026 Calculations', () => {
     expect(exam).toHaveLength(25);
     const examModuleCoverage = new Set(exam.map((q) => q.moduleId));
     expect(examModuleCoverage.size).toBe(8);
+  });
+
+  it('computes exam day countdown, smart daily recommendations, and oral exam tickets', () => {
+    expect(getDaysUntilExam('2026-11-25', '2026-11-15')).toBe(10);
+    expect(getDaysUntilExam('2026-11-15', '2026-11-15')).toBe(0);
+    expect(getDaysUntilExam('2026-11-10', '2026-11-15')).toBe(-5);
+    expect(getDaysUntilExam(null, '2026-11-15')).toBeNull();
+
+    const withMistakes = {
+      ...INITIAL_PROGRESS,
+      mistakeQuestionIds: [QUIZ_QUESTIONS[0].id],
+    };
+    expect(
+      getRecommendedNextAction(
+        withMistakes,
+        STUDY_MODULES,
+        FLASHCARDS,
+        QUIZ_QUESTIONS,
+        CASE_SCENARIOS
+      ).actionType
+    ).toBe('mistakes');
+
+    expect(
+      getRecommendedNextAction(
+        INITIAL_PROGRESS,
+        STUDY_MODULES,
+        FLASHCARDS,
+        QUIZ_QUESTIONS,
+        CASE_SCENARIOS
+      ).actionType
+    ).toBe('module');
+
+    const ticket = drawOralExamTicket(
+      STUDY_MODULES,
+      CASE_SCENARIOS,
+      STUDY_MODULES[0].id,
+      CASE_SCENARIOS[0].id
+    );
+    expect(ticket.module.id).not.toBe(STUDY_MODULES[0].id);
+    expect(ticket.scenario.id).not.toBe(CASE_SCENARIOS[0].id);
   });
 });

@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeftRight,
+  Award,
   ChevronLeft,
   ChevronRight,
   RotateCw,
@@ -23,6 +25,8 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 }) => {
   const [moduleFilter, setModuleFilter] = useState<ModuleId | 'all'>(initialModuleFilter);
   const [onlyUnmastered, setOnlyUnmastered] = useState(false);
+  const [reverseMode, setReverseMode] = useState(false);
+  const [roundCompleted, setRoundCompleted] = useState(false);
   const [deckIds, setDeckIds] = useState<string[]>(() =>
     selectSmartFlashcards(FLASHCARDS, progress.cardBoxes, initialModuleFilter, false).map(
       (c) => c.id
@@ -30,6 +34,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const touchStartX = useRef<number | null>(null);
 
   const rebuildDeck = (nextFilter: ModuleId | 'all', nextUnmastered: boolean) => {
     const nextIds = selectSmartFlashcards(
@@ -41,6 +46,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
     setDeckIds(nextIds);
     setCurrentIndex(0);
     setIsFlipped(false);
+    setRoundCompleted(false);
   };
 
   useEffect(() => {
@@ -73,8 +79,10 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
     if (!currentCard) return;
     onRateCard(currentCard.id, level);
     setIsFlipped(false);
-    if (deck.length > 1) {
-      setCurrentIndex((safeIndex + 1) % deck.length);
+    if (safeIndex + 1 >= deck.length) {
+      setRoundCompleted(true);
+    } else {
+      setCurrentIndex(safeIndex + 1);
     }
   };
 
@@ -82,6 +90,26 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
     setDeckIds(shuffleArray(deckIds));
     setCurrentIndex(0);
     setIsFlipped(false);
+    setRoundCompleted(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
+    const deltaX = endX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(deltaX) >= 55) {
+      e.stopPropagation();
+      if (deltaX < 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
+    }
   };
 
   useEffect(() => {
@@ -134,6 +162,17 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
     ? STUDY_MODULES.find((m) => m.id === currentCard.moduleId)?.shortTitle
     : '';
 
+  const frontContent = currentCard
+    ? reverseMode
+      ? currentCard.answer
+      : currentCard.question
+    : '';
+  const backContent = currentCard
+    ? reverseMode
+      ? currentCard.question
+      : currentCard.answer
+    : '';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -142,19 +181,39 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
             Opakovací kartičky
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Chytré řazení přednostně vrací kartičky, ve kterých jste minule zaváhala.
+            Chytré řazení přednostně vrací kartičky, ve kterých jste minule zaváhala. Na mobilu
+            funguje i přejetí prstem.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleShuffle}
-          disabled={deck.length < 2}
-          className="self-start inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer disabled:opacity-50"
-        >
-          <Shuffle className="w-4 h-4 text-teal-600" />
-          Zamíchat balíček
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          <button
+            type="button"
+            onClick={() => {
+              setReverseMode((r) => !r);
+              setIsFlipped(false);
+            }}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+              reverseMode
+                ? 'bg-teal-600 border-teal-600 text-white'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+            title="Prohodí líc a rub kartičky (zkoušení obráceně)"
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5" />
+            {reverseMode ? 'Obrácený režim ✓' : 'Obrátit otázku ↔ odpověď'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleShuffle}
+            disabled={deck.length < 2}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer disabled:opacity-50"
+          >
+            <Shuffle className="w-4 h-4 text-teal-600" />
+            Zamíchat balíček
+          </button>
+        </div>
       </div>
 
       {/* Filters & Stats */}
@@ -215,23 +274,66 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
       {!currentCard ? (
         <div className="p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-3">
           <Sparkles className="w-10 h-10 text-emerald-500 mx-auto" />
-          <h3 className="text-lg font-bold">Skvělá práce! Všechny kartičky v tomto filtru už máte zvládnuté.</h3>
+          <h3 className="text-lg font-bold">
+            Skvělá práce! Všechny kartičky v tomto filtru už máte zvládnuté.
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Zrušte zaškrtnutí „Jen neosvojené“ nebo vyberte jiný okruh.
           </p>
         </div>
+      ) : roundCompleted ? (
+        <div className="max-w-2xl mx-auto p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4">
+          <Award className="w-12 h-12 text-amber-500 mx-auto" />
+          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
+            Kolo všech {deck.length} kartiček dokončeno!
+          </h3>
+          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto">
+            V tomto okruhu už umíte skvěle <strong>{stats.box3}</strong> z{' '}
+            <strong>{stats.total}</strong> kartiček. Slabší kartičky se v dalším kole automaticky
+            zařadí na začátek.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOnlyUnmastered(true);
+                rebuildDeck(moduleFilter, true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold cursor-pointer"
+            >
+              Procvičit jen neosvojené
+            </button>
+            <button
+              type="button"
+              onClick={() => rebuildDeck(moduleFilter, false)}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs sm:text-sm font-semibold cursor-pointer"
+            >
+              Projít celý balíček znovu
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="max-w-2xl mx-auto space-y-4">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 px-1">
-            <span>
-              Kartička {safeIndex + 1} z {deck.length}
-            </span>
-            <span>Klávesy: Mezerník = otočit · 1 / 2 / 3 = ohodnotit</span>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 px-1">
+              <span>
+                Kartička {safeIndex + 1} z {deck.length}
+              </span>
+              <span>Klávesy: Mezerník = otočit · 1 / 2 / 3 = ohodnotit</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-teal-600 transition-all duration-300"
+                style={{ width: `${Math.round(((safeIndex + 1) / deck.length) * 100)}%` }}
+              />
+            </div>
           </div>
 
           <div
-            className="card-perspective cursor-pointer"
+            className="card-perspective cursor-pointer touch-pan-y"
             onClick={() => setIsFlipped((f) => !f)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
             role="button"
             tabIndex={0}
             aria-label="Otočit opakovací kartičku"
@@ -245,13 +347,14 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
             <div className={`card-inner min-h-[300px] sm:min-h-[330px] ${isFlipped ? 'is-flipped' : ''}`}>
               {/* Front */}
               <div
-                className={`card-face absolute inset-0 rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-md p-6 sm:p-8 flex flex-col justify-between ${
+                className={`card-face absolute inset-0 rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-md p-6 sm:p-8 flex flex-col justify-between overflow-y-auto ${
                   isFlipped ? 'pointer-events-none' : ''
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300 text-xs font-semibold">
                     {currentModuleName}
+                    {reverseMode ? ' · rub napřed' : ''}
                   </span>
                   <span className="text-xs text-slate-400 flex items-center gap-1">
                     <RotateCw className="w-3.5 h-3.5" />
@@ -260,8 +363,12 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                 </div>
 
                 <div className="my-auto py-4 text-center">
-                  <h3 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug">
-                    {currentCard.question}
+                  <h3
+                    className={`font-bold text-slate-900 dark:text-white leading-snug whitespace-pre-line ${
+                      reverseMode ? 'text-base sm:text-lg font-medium text-left' : 'text-lg sm:text-2xl'
+                    }`}
+                  >
+                    {frontContent}
                   </h3>
                 </div>
 
@@ -285,17 +392,21 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="px-3 py-1 rounded-full bg-teal-600 text-white text-xs font-semibold">
-                    Správná odpověď
+                    {reverseMode ? 'Otázka ke kartičce' : 'Správná odpověď'}
                   </span>
                   <span className="text-xs text-teal-700 dark:text-teal-300 flex items-center gap-1">
                     <RotateCw className="w-3.5 h-3.5" />
-                    Zpět na otázku
+                    Zpět na přední stranu
                   </span>
                 </div>
 
                 <div className="my-auto py-3 space-y-3">
-                  <p className="text-sm sm:text-base font-medium text-slate-900 dark:text-slate-100 whitespace-pre-line leading-relaxed">
-                    {currentCard.answer}
+                  <p
+                    className={`font-medium text-slate-900 dark:text-slate-100 whitespace-pre-line leading-relaxed ${
+                      reverseMode ? 'text-base sm:text-xl font-bold text-center' : 'text-sm sm:text-base'
+                    }`}
+                  >
+                    {backContent}
                   </p>
                   {currentCard.mnemonic && (
                     <div className="p-3 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300/70 dark:border-amber-800 text-xs sm:text-sm text-amber-950 dark:text-amber-100">
